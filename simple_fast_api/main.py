@@ -16,6 +16,11 @@ class User(BaseModel):
     class Config:
         from_attributes = True
 
+#--- Schema for updates--
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    age: Optional[int] = None
+
 #---POST: add User ----
 @app.post("/users")
 def create_user(user: User, db: Session = Depends(get_db)):
@@ -38,6 +43,30 @@ def get_users(id:Optional[int] = Query(None, description="Filter by User ID"), d
             raise HTTPException(status_code=400, detail=f"User with id {id} does not exist")
         return user
     return db.query(UserDB).all()
+
+#--PUT : update existing user
+@app.put("/users/{user_id}")
+def update_user(user_id: int, updates: UserUpdate, db: Session = Depends(get_db)):
+    try:
+        user = db.query(UserDB).filter(UserDB.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=400, detail=f"User with id {user_id} does not exist")
+
+        if updates.username is not None:
+            user.username = updates.username
+        if updates.age is not None:
+            user.age = updates.age
+
+        db.commit()
+        db.refresh(user)
+        return{"message": "User updated successfully!", "user": user }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f'Unexpected error: {str(e)}')
+
+
 
 
 
